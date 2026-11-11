@@ -1,0 +1,1 @@
+export const minutes=(n:unknown)=>Number(n||0).toFixed(1)+" 分钟";export const pct=(n:unknown)=>(Number(n||0)*100).toFixed(1)+"%";export const timestamp=(v:string)=>new Date(v).toLocaleString("zh-CN",{hour12:false});

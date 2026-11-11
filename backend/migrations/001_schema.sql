@@ -1,0 +1,4 @@
+-- SQLAlchemy Base.metadata.create_all applies this baseline on a new database.
+-- datasets, route_groups, studies, runs, reviews, reports, users, audits.
+-- JSON columns retain UTC milestone observations and immutable report snapshots.
+-- Existing deployments: back up the database before schema changes; no automatic destructive migrations.
