@@ -20,6 +20,28 @@ def parse_csv(text):
   events.append({k:row[k].strip() for k in required})
  return events
 
+def parse_supplement_csv(text):
+ # 补报批次：与原始CSV相同的校验，额外要求整数修订号 revision>=1。
+ rows=list(csv.DictReader(io.StringIO(text)))
+ if not rows or len(rows)>10000: raise ValueError("需要1至10000条补报事件")
+ required={"shipment_id","station","milestone","timestamp","revision"}
+ if not required.issubset(rows[0]): raise ValueError("补报CSV须含shipment_id,station,milestone,timestamp,revision")
+ events=[]
+ for i,row in enumerate(rows):
+  if not row["shipment_id"].strip() or not row["station"].strip(): raise ValueError(f"第{i+2}行缺少票号或站点")
+  if row["milestone"] not in MILESTONES: raise ValueError(f"第{i+2}行里程碑未知")
+  rev_raw=(row.get("revision") or "").strip()
+  if not rev_raw.isdigit() or int(rev_raw)<1: raise ValueError(f"第{i+2}行修订号需为>=1的整数")
+  try:
+   dt=datetime.fromisoformat(row["timestamp"].replace("Z","+00:00"))
+   if dt.tzinfo is None: raise ValueError()
+   dt.timestamp()
+  except Exception: raise ValueError(f"第{i+2}行时间需携带时区")
+  events.append({"shipment_id":row["shipment_id"].strip(),"station":row["station"].strip(),"milestone":row["milestone"].strip(),"timestamp":row["timestamp"].strip(),"revision":int(rev_raw)})
+ return events
+
+def event_key(event): return (event["shipment_id"],event["milestone"])
+
 def pair(events,stations):
  groups={}; rejected=[]
  for event in events:

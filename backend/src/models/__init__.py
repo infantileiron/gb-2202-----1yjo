@@ -1,4 +1,4 @@
-from .dataset import MilestoneDataset
+from .dataset import MilestoneDataset,DatasetSupplement
 from .group import RouteGroup
 from .study import DelayStudy
 from .run import DelayRun

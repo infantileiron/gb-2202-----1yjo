@@ -35,6 +35,7 @@ docker compose exec -T backend python -m scripts.seed_demo
 - `backend/src/config`：环境变量与数据库；`middlewares`：审计、全局错误；`utils`：JWT、口令哈希与队列。
 - `backend/scripts/seed_demo.py`：固定随机种子、自然键检测、保留用户修改的种子脚本。
 - `backend/migrations/001_schema.sql`：基线建表说明；启动用SQLAlchemy元数据创建新表。
+- `backend/migrations/002_supplements.sql`：补报修订的存量库升级脚本（新增 datasets.version/revisions、dataset_supplements 表、runs.dataset_version/dataset_snapshot），升级前先备份。
 - `frontend/src/{api,stores,types,constants,hooks,utils,pages,router}`；`components`有共享分位表和贡献条，跨总览、结果、报告复用。
 - 测试脚本、截图、运行报告在批次外层 `test-artifacts/gb-2202`，不混入本源码。
 
@@ -65,6 +66,20 @@ docker compose exec -T backend python -m scripts.seed_demo
 一票对应一个站点；重复里程碑、站点不一致、缺失里程碑、负时延整票隔离，报告保留票号及原因，不用零补齐。未知里程碑、无时区时间在导入时422拒绝。每批不超过10000条事件；至少8票完整数据才允许分析。
 
 对每阶段和每票总时延分别求经验P50/P90/P95，使用线性插值（NumPy默认）。总时延严格等于每票四阶段之和；**阶段P95不能相加作为总P95**。
+
+### 补报与修订口径
+
+站点常补报或更正里程碑，不必另建批次：向原批次提交补报CSV即可，在原四列外增加整数 `revision` 列（修订号≥1）。原始入库事件一律视为**修订零**。合并规则：
+
+- 同票同里程碑采用**较新修订号**；较新修订覆盖旧修订，事件数不膨胀。
+- **迟到旧记录不覆盖**：补报修订号低于现行修订号时忽略，记 `ignored_stale` 及现行修订号。
+- **重复投递不新增事件**：与现行事件或本批次已采纳记录完全一致的行忽略，记 `ignored_duplicate`。
+- **同修订号内容冲突整批拒收**：同一（票号,里程碑,修订号）在批次内出现多份不同内容即冲突，返回409并逐条列出冲突行，原批次事件不做任何改动；拒收批次同样留痕。
+- 补报可**救回缺节点票**：补齐缺失里程碑后，该票在下一次分析中成为有效样本。
+
+每次补报生成一条 `dataset_supplements` 台账（采纳/忽略/冲突计数与逐行决策、原因、行号），数据集 `version` 随受理批次递增；观测台账页可展开核对每批的采纳、忽略与冲突原因。
+
+**口径隔离**：运行在入队时刻钉住 `dataset_version` 并固化事件快照（`runs.dataset_snapshot`）。排队期间或之后到达的补报不改变该运行；已归档报告保存批准时的不可变快照，同样保留原口径。只有新建运行才使用更新后的数据，结果中同时记录钉住版本与当前版本，页面可核对。
 
 ### 重采样尾部贡献
 
